@@ -1,0 +1,13 @@
+import { Dashboard, DeviceHub, Lan, Logout, Settings, SettingsBackupRestore, Assessment, Hub, MonitorHeart } from "@mui/icons-material";
+import { AppBar, Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Typography } from "@mui/material";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import DashboardPage from "./pages/DashboardPage";
+import ConfigurationPage from "./pages/ConfigurationPage";
+import AdministrationPage from "./pages/AdministrationPage";
+import InventoryPage from "./pages/InventoryPage";
+import MonitoringPage from "./pages/MonitoringPage";
+import TopologyPage from "./pages/TopologyPage";
+import LoginPage from "./pages/LoginPage";
+const width = 252;
+function Shell() { const navigate = useNavigate(); const logout = () => { localStorage.removeItem("crtnm-token"); navigate("/login"); }; return <Box sx={{ display: "flex" }}><AppBar position="fixed"><Toolbar><Lan sx={{ mr: 1 }} /><Typography variant="h6">CRTNM</Typography><Box sx={{ flexGrow: 1 }} /><Typography variant="body2">Central Railway Telecom Network Manager</Typography></Toolbar></AppBar><Drawer variant="permanent" sx={{ width, '& .MuiDrawer-paper': { width, boxSizing: 'border-box' } }}><Toolbar /><List>{[["Dashboard", <Dashboard />, "/"], ["Inventory", <DeviceHub />, "/inventory"], ["Monitoring", <MonitorHeart />, "/monitoring"], ["Topology", <Hub />, "/topology"], ["Configurations", <SettingsBackupRestore />, "/configurations"], ["Reports & Admin", <Assessment />, "/administration"], ["Settings", <Settings />, "/settings"]].map(([label, icon, href]) => <ListItemButton key={String(label)} onClick={() => navigate(String(href))}><ListItemIcon>{icon}</ListItemIcon><ListItemText primary={String(label)} /></ListItemButton>)}<ListItemButton onClick={logout}><ListItemIcon><Logout /></ListItemIcon><ListItemText primary="Sign out" /></ListItemButton></List></Drawer><Box component="main" sx={{ flexGrow: 1, p: 3, mt: 8 }}><Routes><Route path="/" element={<DashboardPage />} /><Route path="/inventory" element={<InventoryPage />} /><Route path="/monitoring" element={<MonitoringPage />} /><Route path="/topology" element={<TopologyPage />} /><Route path="/configurations" element={<ConfigurationPage />} /><Route path="/administration" element={<AdministrationPage />} /><Route path="*" element={<Typography>Module planned for a later milestone.</Typography>} /></Routes></Box></Box>; }
+export default function App() { return <Routes><Route path="/login" element={<LoginPage />} /><Route path="/*" element={localStorage.getItem("crtnm-token") ? <Shell /> : <Navigate to="/login" replace />} /></Routes>; }

@@ -1,0 +1,63 @@
+services:
+  api:
+    build: .
+    env_file: .env
+    environment:
+      CRTNM_DATABASE_URL: postgresql+psycopg://crtnm:${POSTGRES_PASSWORD}@postgres:5432/crtnm
+      CRTNM_REDIS_URL: redis://redis:6379/0
+      CRTNM_CELERY_BROKER_URL: redis://redis:6379/1
+      CRTNM_CELERY_RESULT_BACKEND: redis://redis:6379/2
+    ports: ["8000:8000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  worker:
+    build: .
+    command: celery -A crtnm.infrastructure.celery_app.celery_app worker --loglevel=INFO
+    env_file: .env
+    environment:
+      CRTNM_DATABASE_URL: postgresql+psycopg://crtnm:${POSTGRES_PASSWORD}@postgres:5432/crtnm
+      CRTNM_REDIS_URL: redis://redis:6379/0
+      CRTNM_CELERY_BROKER_URL: redis://redis:6379/1
+      CRTNM_CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on: [postgres, redis]
+  beat:
+    build: .
+    command: celery -A crtnm.infrastructure.celery_app.celery_app beat --loglevel=INFO
+    env_file: .env
+    environment:
+      CRTNM_DATABASE_URL: postgresql+psycopg://crtnm:${POSTGRES_PASSWORD}@postgres:5432/crtnm
+      CRTNM_REDIS_URL: redis://redis:6379/0
+      CRTNM_CELERY_BROKER_URL: redis://redis:6379/1
+      CRTNM_CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on: [postgres, redis]
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: crtnm
+      POSTGRES_USER: crtnm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crtnm -d crtnm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes: ["redis_data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  postgres_data:
+  redis_data:
+
