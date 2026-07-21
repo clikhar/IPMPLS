@@ -9,12 +9,8 @@ import DeviceDialog from "../components/inventory/DeviceDialog";
 import { inventoryApi } from "../services/inventoryApi";
 import { useDevices, useStations } from "../hooks/useInventory";
 import DeleteDeviceDialog from "../components/inventory/DeleteDeviceDialog";
-import {
-    ConnectionResult,
-    CreateDeviceRequest,
-    Device
-} from "../types/inventory";
-
+import {ConnectionResult,CreateDeviceRequest,Device} from "../types/inventory";
+import DeviceDrawer from "../components/inventory/DeviceDrawer";
 import ConnectionDialog from "../components/inventory/ConnectionDialog";
 
 export default function InventoryPage() {
@@ -38,6 +34,11 @@ export default function InventoryPage() {
         useState(false);
 
     const [deleteDeviceTarget, setDeleteDeviceTarget] =
+        useState<Device | null>(null);
+    const [drawerOpen, setDrawerOpen] =
+        useState(false);
+
+    const [drawerDevice, setDrawerDevice] =
         useState<Device | null>(null);
 
     const [snackbar, setSnackbar] = useState({
@@ -290,13 +291,8 @@ export default function InventoryPage() {
                 onTest={(id) => testConnection.mutate(id)}
                 onBackup={(id) => backupDevice.mutate(id)}
                 onEdit={(device) => {
-
-                    setDialogMode("edit");
-
-                    setSelectedDevice(device);
-
-                    setOpenDialog(true);
-
+                     setDrawerDevice(device);
+                     setDrawerOpen(true);
                 }}
                 onDelete={(device: Device) => {
                     setDeleteDeviceTarget(device);
@@ -372,6 +368,21 @@ export default function InventoryPage() {
                     setConnectionResult(null);
 
                     setConnectionError(null);
+
+                }}
+
+            />
+            <DeviceDrawer
+
+                open={drawerOpen}
+
+                device={drawerDevice}
+
+                onClose={() => {
+
+                    setDrawerOpen(false);
+
+                    setDrawerDevice(null);
 
                 }}
 

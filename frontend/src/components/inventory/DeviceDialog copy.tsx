@@ -38,7 +38,9 @@ export default function DeviceDialog({
     loading,
     stations,
     onClose,
-    onSubmit
+    onSubmit,
+    mode,
+    device
 }: Props) {
 
     function submit(event: FormEvent<HTMLFormElement>) {

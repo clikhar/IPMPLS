@@ -13,6 +13,7 @@ export interface Device {
     model: string | null;
     management_ip: string;
     protocol: string;
+    connection_username: string;
 }
 
 export interface CreateDeviceRequest {
