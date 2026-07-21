@@ -18,8 +18,9 @@ from crtnm.drivers.neon import NeonDriver
 from crtnm.infrastructure.database import get_session
 from crtnm.infrastructure.models import AuditLogModel
 from crtnm.presentation.dependencies import get_current_user, require_role
-from crtnm.presentation.schemas import AlarmRead, AuditLogRead, BackupRead, CommandOutput, ComparisonRead, ConnectionCommand, ConnectionTestRead, Credentials, CurrentUser, DashboardSummaryRead, DeviceCreate, DeviceRead, HealthSnapshotRead, InterfacePlanCreate, InterfaceStatusRead, MplsPlanCreate, NetworkPlanRead, RecoverySimulationCreate, RecoverySimulationRead, RestorePreviewRead, StaticRoutePlanCreate, StationCreate, StationRead, TokenResponse, TopologyRead, UserCreate, UserRead, VlanPlanCreate
+from crtnm.presentation.schemas import AlarmRead, AuditLogRead, BackupRead, CommandOutput, ComparisonRead, ConnectionCommand, ConnectionTestRead, Credentials, CurrentUser, DashboardSummaryRead, DeviceCreate, DeviceRead, DeviceUpdate, HealthSnapshotRead, InterfacePlanCreate, InterfaceStatusRead, MplsPlanCreate, NetworkPlanRead, RecoverySimulationCreate, RecoverySimulationRead, RestorePreviewRead, StaticRoutePlanCreate, StationCreate, StationRead, TokenResponse, TopologyRead, UserCreate, UserRead, VlanPlanCreate
 import json
+import traceback
 
 router = APIRouter(prefix="/api/v1")
 audit = AuditService()
@@ -83,9 +84,40 @@ def create_device(payload: DeviceCreate, user: CurrentUser = Depends(require_rol
         session.rollback()
         raise HTTPException(status_code=409, detail="Device name or management IP already exists") from error
 
+@router.put("/devices/{device_id}",response_model=DeviceRead,)
+def update_device(device_id: int,payload: DeviceUpdate,user: CurrentUser = Depends(require_role(UserRole.ADMIN, UserRole.OPERATOR)),session: Session = Depends(get_session),):
+    return inventory.update_device(
+        session,
+        str(user.id),
+        device_id,
+        payload.model_dump(mode="json"),
+    )
 
+@router.get("/devices/{device_id}",response_model=DeviceRead,)
+def get_device(
+    device_id: int,
+    user=Depends(require_role(UserRole.ADMIN, UserRole.OPERATOR, UserRole.VIEWER)),
+    session: Session = Depends(get_session),
+):
+    return inventory.get_device(session, device_id)
+
+@router.delete(
+    "/devices/{device_id}",
+    status_code=204,
+)
+def delete_device(
+    device_id: int,
+    user=Depends(require_role(UserRole.ADMIN)),
+    session: Session = Depends(get_session),
+):
+    inventory.delete_device(
+        session,
+        str(user.id),
+        device_id,
+    )
+    
 @router.post("/devices/{device_id}/connection-test", response_model=ConnectionTestRead)
-def connection_test(device_id: int, _: ConnectionCommand, user: CurrentUser = Depends(require_role(UserRole.ADMIN, UserRole.OPERATOR)), session: Session = Depends(get_session)) -> ConnectionTestRead:
+def connection_test(device_id: int,  user: CurrentUser = Depends(require_role(UserRole.ADMIN, UserRole.OPERATOR)), session: Session = Depends(get_session)) -> ConnectionTestRead:
     """Perform a safe `show version` connectivity test; arbitrary commands are not accepted."""
     try:
         facts = inventory.test_device(session, str(user.id), device_id, registry)
@@ -93,6 +125,7 @@ def connection_test(device_id: int, _: ConnectionCommand, user: CurrentUser = De
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except (ValueError, DriverError, RuntimeError) as error:
+        traceback.print_exc()
         raise HTTPException(status_code=422, detail=str(error)) from error
 
 

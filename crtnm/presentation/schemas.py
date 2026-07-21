@@ -53,7 +53,18 @@ class DeviceRead(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
+class DeviceUpdate(BaseModel):
+    station_id: int
+    name: str
+    device_type: str
+    vendor: str
+    management_ip: str
+    protocol: str
+    connection_username: str
+    password: str | None = None
+    enable_password: str | None = None
+    port: int | None = None
+    
 class ConnectionCommand(BaseModel):
     """Read-only command request; only the driver can authorize commands."""
 

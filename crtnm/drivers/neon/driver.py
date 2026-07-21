@@ -1,5 +1,5 @@
 """Read-only NEON driver using SSH or telnet transport."""
-from contextlib import closing
+"""from contextlib import closing"""
 from netmiko import ConnectHandler
 from netmiko.exceptions import NetmikoBaseException
 from crtnm.drivers.contracts import ConnectionProfile, DeviceFacts, NetworkDriver
@@ -33,7 +33,7 @@ class NeonDriver(NetworkDriver):
             raise ConnectionFailed("Unsupported protocol; choose SSH or telnet")
         return self._run_ssh(profile, command)
 
-    def _run_ssh(self, profile: ConnectionProfile, command: str) -> tuple[str, str]:
+    """def _run_ssh(self, profile: ConnectionProfile, command: str) -> tuple[str, str]:
         try:
             with closing(ConnectHandler(device_type="terminal_server", host=profile.host, username=profile.username, password=profile.password, secret=profile.enable_password or "", port=profile.port or 22, timeout=15, auth_timeout=15, banner_timeout=15)) as connection:
                 prompt = connection.find_prompt().strip()
@@ -45,13 +45,70 @@ class NeonDriver(NetworkDriver):
                 return self._validate_output(output), connection.find_prompt().strip()
         except NetmikoBaseException as error:
             raise ConnectionFailed("SSH connection or authentication failed") from error
+    """
+    def _run_ssh(self, profile: ConnectionProfile, command: str) -> tuple[str, str]:
+        connection = None
+
+        try:
+            connection = ConnectHandler(
+                device_type="terminal_server",
+                host=profile.host,
+                username=profile.username,
+                password=profile.password,
+                secret=profile.enable_password or "",
+                port=profile.port or 22,
+                timeout=15,
+                auth_timeout=15,
+                banner_timeout=15,
+            )
+
+            prompt = connection.find_prompt().strip()
+
+            if not find_prompt(prompt):
+                raise ConnectionFailed(
+                    "Device did not provide a recognized NEON prompt"
+                )
+
+            if prompt.endswith(">") and profile.enable_password:
+                connection.enable(
+                    cmd="EN",
+                    enable_pattern=r"#"
+                )
+
+            output = connection.send_command(
+                command,
+                expect_string=r"[>#]",
+                read_timeout=30
+            )
+
+            return (
+                self._validate_output(output),
+                connection.find_prompt().strip()
+            )
+
+        except NetmikoBaseException as error:
+            raise ConnectionFailed(
+                "SSH connection or authentication failed"
+            ) from error
+
+        finally:
+            if connection:
+                connection.disconnect()
 
     def _run_telnet(self, profile: ConnectionProfile, command: str) -> tuple[str, str]:
         client, prompt = NeonTelnetClient().connect(profile)
-        with closing(client):
-            client.write(command.encode() + b"\n")
-            raw = client.read_until(prompt.encode(), 30).decode(errors="replace")
-            return self._validate_output(raw), prompt
+
+        try:
+                client.write(command.encode() + b"\n")
+                raw = client.read_until(
+                    prompt.encode(),
+                    30
+                ).decode(errors="replace")
+
+                return self._validate_output(raw), prompt
+
+        finally:
+                client.close()
 
     @staticmethod
     def _validate_output(output: str) -> str:

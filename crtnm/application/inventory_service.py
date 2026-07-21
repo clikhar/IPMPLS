@@ -45,6 +45,97 @@ class InventoryService:
     def list_devices(self, session: Session) -> list[DeviceModel]:
         return list(session.scalars(select(DeviceModel).order_by(DeviceModel.name)))
 
+    def get_device(self, session: Session, device_id: int) -> DeviceModel:
+        """Return a single device."""
+        device = session.get(DeviceModel, device_id)
+        if device is None:
+            raise LookupError("Device does not exist")
+        return device
+
+
+    def update_device(
+        self,
+        session: Session,
+        actor: str,
+        device_id: int,
+        data: dict[str, str | int | None],
+    ) -> DeviceModel:
+        """Update an existing device and optionally replace stored credentials."""
+
+        device = session.get(DeviceModel, device_id)
+        if device is None:
+            raise LookupError("Device does not exist")
+
+        station = session.get(StationModel, data["station_id"])
+        if station is None:
+            raise LookupError("Station does not exist")
+
+        device.station_id = data["station_id"]
+        device.name = data["name"]
+        device.device_type = data["device_type"]
+        device.vendor = data["vendor"]
+        device.management_ip = data["management_ip"]
+        device.protocol = data["protocol"]
+        device.connection_username = data["connection_username"]
+
+        if "port" in data:
+            device.port = data["port"]
+
+        password = data.pop("password", None)
+        enable_password = data.pop("enable_password", None)
+
+        if password:
+            device.credential_ciphertext = encrypt_secret(
+                json.dumps(
+                    {
+                        "password": password,
+                        "enable_password": enable_password,
+                    }
+                )
+            )
+
+        session.commit()
+        session.refresh(device)
+
+        self._audit.record(
+            session,
+            actor,
+            "device.update",
+            device.name,
+            f"Station: {station.name}",
+        )
+
+        session.commit()
+
+        return device
+
+
+    def delete_device(
+        self,
+        session: Session,
+        actor: str,
+        device_id: int,
+    ) -> None:
+        """Delete a device from inventory."""
+
+        device = session.get(DeviceModel, device_id)
+
+        if device is None:
+            raise LookupError("Device does not exist")
+
+        name = device.name
+
+        session.delete(device)
+
+        self._audit.record(
+            session,
+            actor,
+            "device.delete",
+            name,
+        )
+
+        session.commit()
+
     def test_device(self, session: Session, actor: str, device_id: int, registry: DriverRegistry) -> DeviceFacts:
         """Use the device's driver to perform a controlled read-only connection test."""
         device = session.get(DeviceModel, device_id)
