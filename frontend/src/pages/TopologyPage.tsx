@@ -1,6 +1,8 @@
 import { Alert, Box, Card, CardContent, Typography } from "@mui/material";
 import { Background, Controls, Edge, MiniMap, Node, ReactFlow } from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
+//import "@xyflow/react/dist/style.css";
+import { getLayoutedElements } from "../components/topology/layout";
+
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import RailwayNode from "../components/topology/RailwayNode";
@@ -14,12 +16,15 @@ export default function TopologyPage() { const topology = useQuery({ queryKey: [
     const [drawerOpen, setDrawerOpen] = useState(false); 
     const nodes: Node[] = (topology.data?.nodes ?? []).map((item, index) => ({
     id: String(item.id),
-
+       /* 
     position: {
         x: 80 + (index % 4) * 220,
         y: 90 + Math.floor(index / 4) * 150,
     },
+        */
 
+    position: { x: 0, y: 0 },
+    
     data: {
         label: (
             <RailwayNode
@@ -55,6 +60,8 @@ export default function TopologyPage() { const topology = useQuery({ queryKey: [
         id: `edge-${index}`, 
         source: String(item.source), 
         target: String(item.target), label: item.label, animated: false })); 
+        //const layout = getLayoutedElements(nodes, edges);
+        const { nodes: layoutedNodes, edges: layoutedEdges } =    getLayoutedElements(nodes, edges);
         return <>
         <Typography variant="h4" gutterBottom>Network Topology</Typography>
         <Typography color="text.secondary" sx={{ mb: 2 }}>
@@ -65,8 +72,8 @@ export default function TopologyPage() { const topology = useQuery({ queryKey: [
         <Card>
             <CardContent sx={{ height: 620 }}>
                 <ReactFlow
-                    nodes={nodes}
-                    edges={edges}
+                    nodes={layoutedNodes}
+                    edges={layoutedEdges}
                     fitView
                     onNodeClick={(_, node) => {
                         const device = topology.data?.nodes.find(
