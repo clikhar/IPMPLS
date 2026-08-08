@@ -20,7 +20,13 @@ class NeonTelnetClient:
             client.read_until(b"Password:", self._timeout)
             client.write(profile.password.encode() + b"\n")
             output = client.read_until(b">", self._timeout).decode(errors="replace")
+            #print(output)
+            client.write(b"enable\n")
+            client.read_until(b"Password:", self._timeout)
+            client.write(profile.password.encode() + b"\n")
+            output = client.read_until(b"#", self._timeout).decode(errors="replace")            
             prompt = find_prompt(output)
+            #print(f"Detected prompt: {prompt}")
             if prompt is None:
                 client.close()
                 raise ConnectionFailed("NEON login completed without a recognized user prompt")

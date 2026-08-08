@@ -1,11 +1,9 @@
 import { Alert, Snackbar } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-
 import InventoryToolbar from "../components/inventory/InventoryToolbar";
 import DeviceTable from "../components/inventory/DeviceTable";
 import DeviceDialog from "../components/inventory/DeviceDialog";
-
 import { inventoryApi } from "../services/inventoryApi";
 import { useDevices, useStations } from "../hooks/useInventory";
 import DeleteDeviceDialog from "../components/inventory/DeleteDeviceDialog";
@@ -15,32 +13,23 @@ import ConnectionDialog from "../components/inventory/ConnectionDialog";
 
 export default function InventoryPage() {
     const queryClient = useQueryClient();
-
     const devices = useDevices();
     const stations = useStations();
-
     const [openDialog, setOpenDialog] = useState(false);
-
     const [dialogMode, setDialogMode] =
         useState<"create" | "edit">("create");
-
     const [selectedDevice, setSelectedDevice] =
         useState<Device | null>(null);
-
     const [connectionResult, setConnectionResult] =
         useState<ConnectionResult | null>(null);
-    
     const [deleteDialogOpen, setDeleteDialogOpen] =
         useState(false);
-
     const [deleteDeviceTarget, setDeleteDeviceTarget] =
         useState<Device | null>(null);
     const [drawerOpen, setDrawerOpen] =
         useState(false);
-
     const [drawerDevice, setDrawerDevice] =
         useState<Device | null>(null);
-
     const [snackbar, setSnackbar] = useState({
         open: false,
         message: "",
@@ -54,14 +43,11 @@ export default function InventoryPage() {
     const createDevice = useMutation({
         mutationFn: (payload: CreateDeviceRequest) =>
             inventoryApi.createDevice(payload),
-
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: ["devices"]
             });
-
             setOpenDialog(false);
-
             setSnackbar({
                 open: true,
                 severity: "success",
@@ -156,91 +142,56 @@ export default function InventoryPage() {
     });
 */
     const testConnection = useMutation({
-
             mutationFn: (id: number) =>
                 inventoryApi
                     .testConnection(id)
                     .then(r => r.data),
-
             onSuccess: (data) => {
-
                 setConnectionError(null);
-
                 setConnectionResult(data);
-
             },
-
             onError: (error: any) => {
-
                 setConnectionResult(null);
-
                 /*setConnectionError(
-
                     error?.response?.data?.detail ??
-
                     "Connection failed."
-
                 );*/
                 let message = "Connection failed.";
-
                 const detail = error?.response?.data?.detail;
-
                 if (typeof detail === "string") {
-
                     message = detail;
-
                 }
                 else if (Array.isArray(detail)) {
-
                     message = detail
                         .map((d: any) => d.msg)
                         .join(", ");
-
                 }
-
                 setConnectionError(message);
-
             }
-
         });
 
     const deleteDevice = useMutation({
-
             mutationFn: (id: number) =>
                 inventoryApi.deleteDevice(id),
-
             onSuccess: () => {
-
                 queryClient.invalidateQueries({
                     queryKey: ["devices"]
                 });
-
                 setDeleteDialogOpen(false);
-
                 setDeleteDeviceTarget(null);
-
                 setSnackbar({
-
                     open: true,
-
                     severity: "success",
-
                     message: "Device deleted."
-
                 });
-
             },
 
             onError: () => {
 
                 setSnackbar({
-
                     open: true,
-
                     severity: "error",
-
                     message: "Unable to delete device."
-
                 });
 
             }
@@ -311,28 +262,18 @@ export default function InventoryPage() {
                         : updateDevice.isPending
                 }
                 onClose={() => {
-
                     setOpenDialog(false);
-
                     setSelectedDevice(null);
-
                 }}
                 onSubmit={(payload) => {
 
                     if (dialogMode === "create") {
-
                         createDevice.mutate(payload);
-
                     } else {
-
                         updateDevice.mutate({
-
                             id: selectedDevice!.id,
-
                             payload
-
                         });
-
                     }
 
                 }}
@@ -364,26 +305,18 @@ export default function InventoryPage() {
                 error={connectionError}
 
                 onClose={() => {
-
                     setConnectionResult(null);
-
                     setConnectionError(null);
 
                 }}
 
             />
             <DeviceDrawer
-
                 open={drawerOpen}
-
                 device={drawerDevice}
-
                 onClose={() => {
-
                     setDrawerOpen(false);
-
                     setDrawerDevice(null);
-
                 }}
 
             />

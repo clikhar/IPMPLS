@@ -18,7 +18,16 @@ from crtnm.drivers.neon import NeonDriver
 from crtnm.infrastructure.database import get_session
 from crtnm.infrastructure.models import AuditLogModel
 from crtnm.presentation.dependencies import get_current_user, require_role
-from crtnm.presentation.schemas import AlarmRead, AuditLogRead, BackupRead, CommandOutput, ComparisonRead, ConnectionCommand, ConnectionTestRead, Credentials, CurrentUser, DashboardSummaryRead, DeviceCreate, DeviceRead, DeviceUpdate, HealthSnapshotRead, InterfacePlanCreate, InterfaceStatusRead, MplsPlanCreate, NetworkPlanRead, RecoverySimulationCreate, RecoverySimulationRead, RestorePreviewRead, StaticRoutePlanCreate, StationCreate, StationRead, TokenResponse, TopologyRead, UserCreate, UserRead, VlanPlanCreate
+from crtnm.presentation.schemas import (AlarmRead, AuditLogRead, BackupRead, 
+                                        CommandOutput, ComparisonRead, ConnectionCommand, 
+                                        ConnectionTestRead, Credentials, CurrentUser, DashboardSummaryRead, 
+                                        DeviceCreate, DeviceRead, DeviceUpdate, ExecuteCommandsRequest,ExecuteCommandsRead,
+                                        ExecuteCommandResult,HealthSnapshotRead, 
+                                        InterfacePlanCreate, InterfaceStatusRead, MplsPlanCreate, 
+                                        NetworkPlanRead, RecoverySimulationCreate, RecoverySimulationRead, 
+                                        RestorePreviewRead, StaticRoutePlanCreate, StationCreate, StationRead, 
+                                        TokenResponse, TopologyRead, UserCreate, UserRead, VlanPlanCreate,)
+
 import json
 import traceback
 
@@ -128,6 +137,111 @@ def connection_test(device_id: int,  user: CurrentUser = Depends(require_role(Us
         traceback.print_exc()
         raise HTTPException(status_code=422, detail=str(error)) from error
 
+@router.get("/devices/{device_id}/facts", )
+def get_device_facts(
+    device_id: int,
+    user: CurrentUser = Depends(
+        require_role(
+            UserRole.ADMIN,
+            UserRole.OPERATOR,
+            UserRole.VIEWER,
+        )
+    ),
+    session: Session = Depends(get_session),
+    ):
+    """
+    Collect structured operational facts from a device.
+
+    The vendor driver controls which read-only commands are executed.
+    """
+
+    try:
+        return inventory.collect_facts(
+            session,
+            str(user.id),
+            device_id,
+            registry,
+        )
+
+    except LookupError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        ) from error
+
+    except (
+        ValueError,
+        DriverError,
+        RuntimeError,
+    ) as error:
+        traceback.print_exc()
+
+        raise HTTPException(
+            status_code=422,
+            detail=str(error),
+        ) from error
+
+@router.post("/devices/{device_id}/execute",response_model=ExecuteCommandsRead,)
+def execute_commands(device_id: int,payload: ExecuteCommandsRequest,
+                     user: CurrentUser = Depends(require_role
+                                                 (UserRole.ADMIN,UserRole.OPERATOR)),
+                                                 session: Session = Depends(get_session),
+                                                 ) -> ExecuteCommandsRead:
+     """"
+     Execute a batch of driver-approved read-only commands.
+    Configuration-changing commands are not accepted by this endpoint.
+    """
+     try:
+        results, execution_time = (
+            inventory.execute_readonly_many(
+                session,
+                str(user.id),
+                device_id,
+                payload.commands,
+                registry,
+            )
+        )
+
+        result_objects = [
+            ExecuteCommandResult(
+                command=str(result["command"]),
+                success=bool(result["success"]),
+                output=str(result.get("output") or ""),
+                error=(
+                    str(result["error"])
+                    if result.get("error")
+                    else None
+                ),
+            )
+            for result in results
+        ]
+
+        return ExecuteCommandsRead(
+            device_id=device_id,
+            success=all(
+                result.success
+                for result in result_objects
+            ),
+            results=result_objects,
+            execution_time=execution_time,
+        )
+     except LookupError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error)
+        ) from error
+     
+     except ValueError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error)
+        ) from error
+     
+     except DriverError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error)
+        ) from error
 
 @router.post("/devices/{device_id}/commands/read-only", response_model=CommandOutput)
 def execute_readonly_command(device_id: int, payload: ConnectionCommand, user: CurrentUser = Depends(require_role(UserRole.ADMIN, UserRole.OPERATOR)), session: Session = Depends(get_session)) -> CommandOutput:

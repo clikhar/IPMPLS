@@ -70,7 +70,48 @@ class ConnectionCommand(BaseModel):
 
     command: str = Field(default="show version", min_length=1, max_length=100)
 
+class ConnectionCommand(BaseModel):
+    """Read-only command request; only the driver can authorize commands."""
 
+    command: str = Field(
+        default="show version",
+        min_length=1,
+        max_length=100
+    )
+
+
+class ExecuteCommandsRequest(BaseModel):
+    """Batch of read-only commands to execute on a network device."""
+
+    commands: list[str] = Field(
+        min_length=1,
+        max_length=10
+    )
+
+
+class ExecuteCommandResult(BaseModel):
+    """Result of one read-only command."""
+
+    command: str
+
+    success: bool
+
+    output: str = ""
+
+    error: str | None = None
+
+
+class ExecuteCommandsRead(BaseModel):
+    """Response from a batch read-only command execution."""
+
+    device_id: int
+
+    success: bool
+
+    results: list[ExecuteCommandResult]
+
+    execution_time: float
+    
 class ConnectionTestRead(BaseModel):
     device_id: int
     hostname: str
