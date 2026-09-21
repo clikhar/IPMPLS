@@ -1,8 +1,54 @@
-.env
-__pycache__/
-.pytest_cache/
+```
+# Dependencies
 .venv/
-*.db
 node_modules/
-dist/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git/modules/
+.DS_Store
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.vscode/
+.idea/
+
+# Build and distribution artifacts
+build/
+dist/
+*.egg
+*.egg-info/
+*.so
+.libs/
+.deps/
+
+# Environment variables
+.env
+.env.local
+.env.*
+
+# Node.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+node_modules/
+```

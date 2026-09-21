@@ -9,7 +9,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from crtnm.infrastructure.models import AuditLogModel, DeviceModel, StationModel
+from crtnm.infrastructure.models import AuditLog, DeviceModel, Station
 
 
 class ReportService:
@@ -20,7 +20,7 @@ class ReportService:
     @classmethod
     def inventory_rows(cls, session: Session) -> list[list[str]]:
         """Return reporting rows without usernames, passwords, or cipher text."""
-        statement = select(StationModel.name, StationModel.division, DeviceModel.name, DeviceModel.device_type, DeviceModel.vendor, DeviceModel.model, DeviceModel.management_ip, DeviceModel.protocol).join(DeviceModel, DeviceModel.station_id == StationModel.id).order_by(StationModel.name, DeviceModel.name)
+        statement = select(Station.name, Station.division, DeviceModel.name, DeviceModel.device_type, DeviceModel.vendor, DeviceModel.model, DeviceModel.management_ip, DeviceModel.protocol).join(DeviceModel, DeviceModel.station_id == Station.id).order_by(Station.name, DeviceModel.name)
         return [[str(value or "") for value in row] for row in session.execute(statement).all()]
 
     @staticmethod
@@ -53,5 +53,5 @@ class ReportService:
     @staticmethod
     def audit_rows(session: Session, limit: int = 500) -> list[list[str]]:
         """Return the most recent audit records for viewing/export."""
-        events = session.scalars(select(AuditLogModel).order_by(AuditLogModel.id.desc()).limit(limit))
+        events = session.scalars(select(AuditLog).order_by(AuditLog.id.desc()).limit(limit))
         return [[str(event.created_at), event.actor, event.action, event.target, event.detail or ""] for event in events]

@@ -7,7 +7,7 @@ from crtnm.core.security import decrypt_secret, encrypt_secret
 from crtnm.drivers.contracts import (ConnectionProfile, DeviceFacts,)
 from crtnm.drivers.registry import DriverRegistry
 from crtnm.drivers.exceptions import DriverError
-from crtnm.infrastructure.models import DeviceModel, StationModel
+from crtnm.infrastructure.models import DeviceModel, Station
 
 
 class InventoryService:
@@ -16,9 +16,9 @@ class InventoryService:
     def __init__(self, audit: AuditService) -> None:
         self._audit = audit
 
-    def create_station(self, session: Session, actor: str, name: str, division: str, location: str | None) -> StationModel:
+    def create_station(self, session: Session, actor: str, name: str, division: str, location: str | None) -> Station:
         """Add a station to the railway network registry."""
-        station = StationModel(name=name, division=division, location=location)
+        station = Station(name=name, division=division, location=location)
         session.add(station)
         self._audit.record(session, actor, "station.create", name)
         session.commit()
@@ -27,7 +27,7 @@ class InventoryService:
 
     def create_device(self, session: Session, actor: str, data: dict[str, str | int | None]) -> DeviceModel:
         """Add a device and encrypt its supplied credential before storage."""
-        station = session.get(StationModel, data["station_id"])
+        station = session.get(Station, data["station_id"])
         if station is None:
             raise LookupError("Station does not exist")
         password = data.pop("password", None)
@@ -40,8 +40,8 @@ class InventoryService:
         session.refresh(device)
         return device
 
-    def list_stations(self, session: Session) -> list[StationModel]:
-        return list(session.scalars(select(StationModel).order_by(StationModel.name)))
+    def list_stations(self, session: Session) -> list[Station]:
+        return list(session.scalars(select(Station).order_by(Station.name)))
 
     def list_devices(self, session: Session) -> list[DeviceModel]:
         return list(session.scalars(select(DeviceModel).order_by(DeviceModel.name)))
@@ -67,7 +67,7 @@ class InventoryService:
         if device is None:
             raise LookupError("Device does not exist")
 
-        station = session.get(StationModel, data["station_id"])
+        station = session.get(Station, data["station_id"])
         if station is None:
             raise LookupError("Station does not exist")
 
