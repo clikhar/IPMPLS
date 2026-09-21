@@ -9,7 +9,7 @@ from crtnm.application.audit_service import AuditService
 from crtnm.core.security import decrypt_secret
 from crtnm.drivers.contracts import ConnectionProfile
 from crtnm.drivers.registry import DriverRegistry
-from crtnm.infrastructure.models import ConfigurationBackupModel, DeviceModel, RecoverySimulationModel
+from crtnm.infrastructure.models import ConfigurationBackup, DeviceModel, RecoverySimulation
 
 _SECRET_LINE = re.compile(r"(?im)^(.*(?:password|secret|community|key)\s+)(\S+.*)$")
 
@@ -32,22 +32,22 @@ class ConfigurationService:
         secrets = json.loads(decrypt_secret(device.credential_ciphertext))
         return ConnectionProfile(host=device.management_ip, username=device.connection_username, password=secrets["password"], enable_password=secrets.get("enable_password"), protocol=device.protocol)
 
-    def capture_running(self, session: Session, actor: str, device_id: int, registry: DriverRegistry) -> ConfigurationBackupModel:
+    def capture_running(self, session: Session, actor: str, device_id: int, registry: DriverRegistry) -> ConfigurationBackup:
         """Retrieve and persist a sanitized running configuration as a new version."""
         device = self._device(session, device_id)
         raw = registry.resolve(device.vendor).execute_readonly(self._profile(device), "show running-config")
         content = self._sanitize(raw)
         checksum = hashlib.sha256(content.encode()).hexdigest()
-        backup = ConfigurationBackupModel(device_id=device_id, content=content, checksum=checksum, created_by=actor)
+        backup = ConfigurationBackup(device_id=device_id, content=content, checksum=checksum, created_by=actor)
         session.add(backup)
         self._audit.record(session, actor, "configuration.backup", device.name, f"SHA-256: {checksum}")
         session.commit(); session.refresh(backup)
         return backup
 
-    def list_backups(self, session: Session, device_id: int) -> list[ConfigurationBackupModel]:
+    def list_backups(self, session: Session, device_id: int) -> list[ConfigurationBackup]:
         """List immutable versions newest first."""
         self._device(session, device_id)
-        return list(session.scalars(select(ConfigurationBackupModel).where(ConfigurationBackupModel.device_id == device_id).order_by(ConfigurationBackupModel.id.desc())))
+        return list(session.scalars(select(ConfigurationBackup).where(ConfigurationBackup.device_id == device_id).order_by(ConfigurationBackup.id.desc())))
 
     def compare(self, session: Session, left_id: int, right_id: int) -> str:
         """Produce a standard unified diff between two stored snapshots."""
@@ -65,14 +65,14 @@ class ConfigurationService:
         session.commit()
         return {"device_id": device.id, "backup_id": backup.id, "checksum": backup.checksum, "commands": plan, "configuration": backup.content}
 
-    def simulate_recovery(self, session: Session, actor: str, device_id: int, failure_type: str, backup_id: int | None) -> RecoverySimulationModel:
+    def simulate_recovery(self, session: Session, actor: str, device_id: int, failure_type: str, backup_id: int | None) -> RecoverySimulation:
         """Record a recovery plan; simulation deliberately has no network side effects."""
         device = self._device(session, device_id)
-        backup = self._backup(session, backup_id) if backup_id else session.scalar(select(ConfigurationBackupModel).where(ConfigurationBackupModel.device_id == device_id).order_by(ConfigurationBackupModel.id.desc()))
+        backup = self._backup(session, backup_id) if backup_id else session.scalar(select(ConfigurationBackup).where(ConfigurationBackup.device_id == device_id).order_by(ConfigurationBackup.id.desc()))
         if backup is not None and backup.device_id != device_id:
             raise ValueError("Backup does not belong to selected device")
         steps = ["Validate incident approval", "Verify backup checksum", "Establish out-of-band access", "Preview configuration restore", "Require a second administrator confirmation", "Execute in a separately approved change window", "Validate services and retain rollback snapshot"]
-        simulation = RecoverySimulationModel(device_id=device_id, failure_type=failure_type, backup_id=backup.id if backup else None, execution_plan=json.dumps(steps), created_by=actor)
+        simulation = RecoverySimulation(device_id=device_id, failure_type=failure_type, backup_id=backup.id if backup else None, execution_plan=json.dumps(steps), created_by=actor)
         session.add(simulation)
         self._audit.record(session, actor, "recovery.simulation", device.name, f"Failure: {failure_type}; backup: {simulation.backup_id}")
         session.commit(); session.refresh(simulation)
@@ -86,8 +86,8 @@ class ConfigurationService:
         return device
 
     @staticmethod
-    def _backup(session: Session, backup_id: int | None) -> ConfigurationBackupModel:
-        backup = session.get(ConfigurationBackupModel, backup_id)
+    def _backup(session: Session, backup_id: int | None) -> ConfigurationBackup:
+        backup = session.get(ConfigurationBackup, backup_id)
         if backup is None:
             raise LookupError("Configuration backup does not exist")
         return backup
